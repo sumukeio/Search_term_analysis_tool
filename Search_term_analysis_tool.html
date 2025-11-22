@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQR 分析工具 v0.9 (手动CSV解析)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* [样式表和 v0.8 一样，这里省略] */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #1a73e8;
+        }
+
+        h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #f1f1f1;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-size: 16px;
+        }
+
+        .tab-btn.active {
+            background: #fff;
+            border: 2px solid #ccc;
+            border-bottom: 2px solid #fff;
+            position: relative;
+            top: 2px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .tab-content {
+            display: none;
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .upload-section {
+            padding: 20px;
+            background: #e3f2fd;
+            border: 2px dashed #1a73e8;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        #file-upload-btn {
+            background-color: #1a73e8;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #file-name {
+            font-style: italic;
+            color: #555;
+        }
+
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .controls label {
+            font-size: 14px;
+        }
+
+        .controls input[type="number"] {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #f9f9f9;
+            position: sticky;
+            top: 0;
+        }
+
+        .highlight {
+            background-color: #fffde7;
+        }
+
+        .processed {
+            opacity: 0.5;
+            background-color: #f0f0f0;
+        }
+
+        .processed button {
+            display: none;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            font-size: 12px;
+            color: white;
+        }
+
+        .btn-short-neg {
+            background-color: #f44336;
+        }
+
+        .btn-exact-neg {
+            background-color: #ff9800;
+        }
+
+        .btn-add {
+            background-color: #4CAF50;
+        }
+
+        #plan-blocks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .plan-block {
+            background-color: #e3f2fd;
+            border: 1px solid #1a73e8;
+            color: #1a73e8;
+            padding: 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .plan-block:hover {
+            background-color: #1a73e8;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 60%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-columns {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .modal-column {
+            flex: 1;
+        }
+
+        .modal-column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f1f1;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .btn-import-txt {
+            font-size: 10px;
+            padding: 3px 6px;
+            cursor: pointer;
+        }
+
+        .modal-column textarea {
+            width: 95%;
+            height: 300px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        #loading-spinner {
+            display: none;
+            margin-left: 15px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1a73e8;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>竞价搜索词分析工具 v0.9 (手动CSV解析)</h1>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="openTab(event, 'tab-workbench')">① 工作台 (SQR处理)</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-library')">② 关键词库</button>
+    </div>
+    <div id="tab-workbench" class="tab-content active">
+        <div class="upload-section">
+            <input type="file" id="file-upload" accept=".xlsx, .csv" style="display: none;">
+            <button id="file-upload-btn" onclick="document.getElementById('file-upload').click()">
+                上传搜索词报告
+            </button>
+            <span id="file-name">未选择文件</span>
+            <div id="loading-spinner"></div>
+        </div>
+        <h2>关键词处理表格</h2>
+        <div class="controls">
+            <span>高亮条件:</span>
+            <label>展现 > <input type="number" id="min-imp" value="100" oninput="applyHighlight()"></label>
+            <label>点击率 > <input type="number" id="min-ctr" value="5" oninput="applyHighlight()"> %</label>
+            <label style="margin-left: auto;"><input type="checkbox" id="toggle-processed" onchange="toggleProcessed()">
+                隐藏已处理</label>
+        </div>
+        <div style="overflow-x: auto; max-height: 60vh; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>计划/方案</th>
+                        <th>关键词</th>
+                        <th>搜索词</th>
+                        <th>状态</th>
+                        <th>展现</th>
+                        <th>点击</th>
+                        <th>消费</th>
+                        <th>点击率(CTR)</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="sqr-table-body">
+                    <tr>
+                        <td colspan="9" style="text-align: center;">请先上传 SQR 报告...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="tab-library" class="tab-content">
+        <h2>关键词库 (按计划)</h2>
+        <div id="plan-blocks">
+        </div>
+    </div>
+    <div id="library-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="modal-plan-name">计划名称</h2>
+            <div class="modal-columns">
+                <input type="file" id="import-short-txt" accept=".txt" style="display:none;"
+                    onchange="handleTextFileImport('short')">
+                <input type="file" id="import-exact-txt" accept=".txt" style="display:none;"
+                    onchange="handleTextFileImport('exact')">
+                <input type="file" id="import-add-txt" accept=".txt" style="display:none;"
+                    onchange="handleTextFileImport('add')">
+                <div class="modal-column">
+                    <div class="modal-column-header">
+                        <h3>短否 (Broad Negative)</h3>
+                        <button class="btn-import-txt"
+                            onclick="document.getElementById('import-short-txt').click()">导入.txt</button>
+                    </div>
+                    <textarea id="modal-short-neg" placeholder="每行一个短否词"></textarea>
+                </div>
+                <div class="modal-column">
+                    <div class="modal-column-header">
+                        <h3>精否 (Exact Negative)</h3>
+                        <button class="btn-import-txt"
+                            onclick="document.getElementById('import-exact-txt').click()">导入.txt</button>
+                    </div>
+                    <textarea id="modal-exact-neg" placeholder="每行一个精否词"></textarea>
+                </div>
+                <div class="modal-column">
+                    <div class="modal-column-header">
+                        <h3>投放 (Add to Campaign)</h3>
+                        <button class="btn-import-txt"
+                            onclick="document.getElementById('import-add-txt').click()">导入.txt</button>
+                    </div>
+                    <textarea id="modal-add" placeholder="每行一个投放词"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // =============================================
+        // 全局状态 和 v0.9 持久化
+        // =============================================
+        let SQRData = [];
+        let keywordLibrary = {};
+        let currentPlanForModal = "";
+        const LOCAL_STORAGE_KEY = 'semKeywordLibrary';
+
+        function loadLibraryFromLocalStorage() { /* [和 v0.8 完全一样] */
+            const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedData) {
+                try {
+                    const parsedData = JSON.parse(savedData);
+                    for (const plan in parsedData) {
+                        keywordLibrary[plan] = {
+                            short: new Set(parsedData[plan].short || []),
+                            exact: new Set(parsedData[plan].exact || []),
+                            add: new Set(parsedData[plan].add || [])
+                        };
+                    }
+                } catch (e) { keywordLibrary = {}; }
+            }
+        }
+
+        function saveLibraryToLocalStorage() { /* [和 v0.8 完全一样] */
+            try {
+                const serializableLibrary = {};
+                for (const plan in keywordLibrary) {
+                    serializableLibrary[plan] = {
+                        short: [...keywordLibrary[plan].short],
+                        exact: [...keywordLibrary[plan].exact],
+                        add: [...keywordLibrary[plan].add]
+                    };
+                }
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serializableLibrary));
+            } catch (e) { console.error("保存本地词库失败:", e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { /* [和 v0.8 完全一样] */
+            loadLibraryFromLocalStorage();
+            renderPlanBlocks();
+        });
+
+        function openTab(event, tabName) { /* [和 v0.8 完全一样] */
+            let i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) { tabcontent[i].style.display = "none"; }
+            tablinks = document.getElementsByClassName("tab-btn");
+            for (i = 0; i < tablinks.length; i++) { tablinks[i].className = tablinks[i].className.replace(" active", ""); }
+            document.getElementById(tabName).style.display = "block";
+            event.currentTarget.className += " active";
+        }
+
+
+        // =============================================
+        // v0.9 核心: 手动 CSV 解析器
+        // =============================================
+        function parseManualCSV(text) {
+            const HEADER_ROW_INDEX = 5; // 写死第6行 (0-indexed)
+            const lines = text.split(/[\n\r]+/); // 按行分割
+
+            if (lines.length <= HEADER_ROW_INDEX) {
+                throw new Error("文件行数太少，找不到表头。");
+            }
+
+            // 1. 读取表头行
+            const headerLine = lines[HEADER_ROW_INDEX];
+            const headers = headerLine.split(',');
+
+            // 2. 创建表头 -> 列索引 的映射
+            const colMap = {};
+            headers.forEach((h, i) => {
+                colMap[h.trim()] = i; // trim() 去除可能的空格
+            });
+
+            // 3. 检查我们需要的列是否存在
+            const requiredCols = [
+                "计划/方案", "关键词/营销要点/知识问答", "搜索词",
+                "账户添加状态", "展现量", "点击量", "消费"
+            ];
+            for (const col of requiredCols) {
+                if (typeof colMap[col] === 'undefined') {
+                    throw new Error(`CSV解析失败：找不到必需的列 "${col}"。请检查文件。`);
+                }
+            }
+
+            // 4. 逐行解析数据
+            const jsonData = [];
+            for (let i = HEADER_ROW_INDEX + 1; i < lines.length; i++) {
+                if (!lines[i] || lines[i].trim() === "") {
+                    continue; // 跳过空行
+                }
+
+                const cells = lines[i].split(',');
+                if (cells.length < headers.length) {
+                    continue; // 跳过格式不正确的行
+                }
+
+                // 按需拼装 JSON
+                const row = {};
+                row["计划/方案"] = cells[colMap["计划/方案"]];
+                row["关键词/营销要点/知识问答"] = cells[colMap["关键词/营销要点/知识问答"]];
+                row["搜索词"] = cells[colMap["搜索词"]];
+                row["账户添加状态"] = cells[colMap["账户添加状态"]];
+                row["展现量"] = cells[colMap["展现量"]];
+                row["点击量"] = cells[colMap["点击量"]];
+                row["消费"] = cells[colMap["消费"]];
+
+                jsonData.push(row);
+            }
+            return jsonData;
+        }
+
+        // =============================================
+        // v0.9 核心: 文件读取 (分流)
+        // =============================================
+        document.getElementById('file-upload').addEventListener('change', handleSQRFile);
+
+        function handleSQRFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('loading-spinner').style.display = 'inline-block';
+
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                let json;
+
+                try {
+                    if (fileExtension === 'xlsx') {
+                        // 1. .xlsx 走 SheetJS (v0.8 逻辑)
+                        const data = new Uint8Array(arrayBuffer);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        json = XLSX.utils.sheet_to_json(worksheet, { header: 5 }); // 写死第6行
+
+                    } else if (fileExtension === 'csv') {
+                        // 2. .csv 走 v0.9 手动解析
+                        const decoder = new TextDecoder('gb18030'); // (v0.6) 强制解码
+                        const text = decoder.decode(arrayBuffer);
+                        json = parseManualCSV(text); // (v0.9) 手动解析！
+
+                    } else {
+                        alert("不支持的文件类型，请上传 .xlsx 或 .csv");
+                        document.getElementById('loading-spinner').style.display = 'none';
+                        return;
+                    }
+
+                    processSQRData(json); // (v0.8) 传递给简体Key处理函数
+
+                } catch (err) {
+                    alert("文件解析失败: " + err);
+                    document.getElementById('loading-spinner').style.display = 'none';
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // =============================================
+        // v0.8 核心: 简体 Key 数据处理 (无需改动)
+        // =============================================
+        function processSQRData(jsonData) {
+            SQRData = [];
+            const plansFromSQR = new Set();
+            let errorCount = 0;
+
+            jsonData.forEach((row, index) => {
+                const plan = row["计划/方案"];
+                const keyword = row["关键词/营销要点/知识问答"];
+                const term = row["搜索词"];
+                const status = row["账户添加状态"];
+                const imp = parseFloat(row["展现量"]) || 0;
+                const click = parseFloat(row["点击量"]) || 0;
+                const cost = parseFloat(row["消费"]) || 0;
+
+                if (typeof plan === 'undefined' || typeof term === 'undefined') {
+                    errorCount++;
+                    return;
+                }
+
+                const ctr = (imp > 0 ? (click / imp) * 100 : 0).toFixed(2);
+                SQRData.push({
+                    id: `row-${index}`,
+                    plan: plan,
+                    keyword: keyword,
+                    term: term,
+                    status: status,
+                    imp: imp,
+                    click: click,
+                    cost: cost,
+                    ctr: ctr
+                });
+
+                plansFromSQR.add(plan);
+            });
+
+            if (errorCount > 0 && SQRData.length === 0) {
+                alert(`导入失败！共跳过 ${errorCount} 行。请检查文件是否损坏。`);
+                document.getElementById('loading-spinner').style.display = 'none';
+                return;
+            }
+
+            renderTable();
+            renderPlanBlocks(plansFromSQR);
+
+            document.getElementById('loading-spinner').style.display = 'none';
+            alert(`成功导入 ${SQRData.length} 条数据! (跳过 ${errorCount} 个无效行)`);
+        }
+
+        // =============================================
+        // 核心功能: 渲染和交互 (v0.8)
+        // =============================================
+        function renderTable() { /* [和 v0.8 完全一样] */
+            const tableBody = document.getElementById("sqr-table-body");
+            tableBody.innerHTML = "";
+            SQRData.forEach(row => {
+                const tr = document.createElement("tr");
+                tr.id = row.id;
+                tr.dataset.plan = row.plan;
+                tr.dataset.term = row.term;
+                tr.dataset.imp = row.imp;
+                tr.dataset.ctr = row.ctr;
+                tr.innerHTML = `
+                    <td>${row.plan || 'N/A'}</td>
+                    <td>${row.keyword || 'N/A'}</td>
+                    <td>${row.term || 'N/A'}</td>
+                    <td>${row.status || 'N/A'}</td>
+                    <td>${row.imp}</td>
+                    <td>${row.click}</td>
+                    <td>${row.cost.toFixed(2)}</td>
+                    <td>${row.ctr}%</td>
+                    <td class="action-buttons">
+                        <button class="action-btn btn-short-neg" onclick="handleAction('${row.id}', 'short')">短否</button>
+                        <button class="action-btn btn-exact-neg" onclick="handleAction('${row.id}', 'exact')">精否</button>
+                        <button class="action-btn btn-add" onclick="handleAction('${row.id}', 'add')">投放</button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+            applyHighlight();
+        }
+
+        function renderPlanBlocks(plansFromSQR = new Set()) { /* [和 v0.8 完全一样] */
+            const blocksContainer = document.getElementById("plan-blocks");
+            blocksContainer.innerHTML = "";
+            const allPlans = new Set([...Object.keys(keywordLibrary), ...plansFromSQR]);
+            if (allPlans.size === 0) {
+                blocksContainer.innerHTML = "<p>本地暂无数据。请先在“工作台”上传 SQR 报告...</p>";
+                return;
+            }
+            allPlans.forEach(planName => {
+                if (!keywordLibrary[planName]) {
+                    keywordLibrary[planName] = { short: new Set(), exact: new Set(), add: new Set() };
+                }
+                const block = document.createElement("div");
+                block.className = "plan-block";
+                block.textContent = planName;
+                block.onclick = () => openModal(planName);
+                blocksContainer.appendChild(block);
+            });
+            saveLibraryToLocalStorage();
+        }
+
+        function applyHighlight() { /* [和 v0.8 完全一样] */
+            const minImp = parseFloat(document.getElementById("min-imp").value) || 0;
+            const minCtr = parseFloat(document.getElementById("min-ctr").value) || 0;
+            document.querySelectorAll("#sqr-table-body tr").forEach(row => {
+                if (parseFloat(row.dataset.imp) > minImp && parseFloat(row.dataset.ctr) > minCtr) {
+                    row.classList.add("highlight");
+                } else {
+                    row.classList.remove("highlight");
+                }
+            });
+        }
+
+        function toggleProcessed() { /* [和 v0.8 完全一样] */
+            const isChecked = document.getElementById("toggle-processed").checked;
+            document.querySelectorAll("#sqr-table-body tr.processed").forEach(row => {
+                row.style.display = isChecked ? "none" : "";
+            });
+        }
+
+        function handleAction(rowId, actionType) { /* [和 v0.8 完全一样] */
+            const row = document.getElementById(rowId);
+            const plan = row.dataset.plan;
+            const term = row.dataset.term;
+            if (keywordLibrary[plan]) {
+                keywordLibrary[plan][actionType].add(term);
+                saveLibraryToLocalStorage();
+            }
+            row.classList.add("processed");
+            if (document.getElementById("toggle-processed").checked) {
+                row.style.display = "none";
+            }
+        }
+
+        /* [模态框相关函数 (openModal, closeModal, etc.) 和 v0.8 完全一样] */
+        const modal = document.getElementById("library-modal");
+
+        function openModal(planName) {
+            currentPlanForModal = planName;
+            document.getElementById("modal-plan-name").textContent = planName;
+            refreshModalTextareas(planName);
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            if (currentPlanForModal && keywordLibrary[currentPlanForModal]) {
+                const lib = keywordLibrary[currentPlanForModal];
+                const shortWords = document.getElementById("modal-short-neg").value.split(/[\n\r]+/).filter(w => w.trim() !== "");
+                const exactWords = document.getElementById("modal-exact-neg").value.split(/[\n\r]+/).filter(w => w.trim() !== "");
+                const addWords = document.getElementById("modal-add").value.split(/[\n\r]+/).filter(w => w.trim() !== "");
+                lib.short = new Set(shortWords);
+                lib.exact = new Set(exactWords);
+                lib.add = new Set(addWords);
+                saveLibraryToLocalStorage();
+            }
+            currentPlanForModal = "";
+            modal.style.display = "none";
+        }
+
+        window.onclick = function (event) { if (event.target == modal) closeModal(); }
+
+        function refreshModalTextareas(planName) {
+            if (!keywordLibrary[planName]) return;
+            const lib = keywordLibrary[planName];
+            document.getElementById("modal-short-neg").value = [...lib.short].join('\n');
+            document.getElementById("modal-exact-neg").value = [...lib.exact].join('\n');
+            document.getElementById("modal-add").value = [...lib.add].join('\n');
+        }
+
+        function handleTextFileImport(actionType) {
+            const fileInputId = `import-${actionType}-txt`;
+            const file = document.getElementById(fileInputId).files[0];
+            if (!file || !currentPlanForModal) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                const words = text.split(/[\n\r]+/).filter(w => w.trim() !== "");
+                const lib = keywordLibrary[currentPlanForModal];
+                if (lib) {
+                    words.forEach(word => lib[actionType].add(word.trim()));
+                    refreshModalTextareas(currentPlanForModal);
+                    saveLibraryToLocalStorage();
+                    alert(`为 [${currentPlanForModal}] 成功导入 ${words.length} 个词到 [${actionType}] 列表 (已自动去重并保存)`);
+                }
+            };
+            reader.readAsText(file);
+            document.getElementById(fileInputId).value = "";
+        }
+    </script>
+</body>
+
+</html>
